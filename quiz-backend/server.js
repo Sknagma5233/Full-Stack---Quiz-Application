@@ -28,6 +28,11 @@ connectDB()
 
 app.use(express.json())
 app.use(cookieParser())
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src 'self'; img-src 'self' https://full-stack-quiz-application-backend.onrender.com; script-src 'self'; style-src 'self';");
+  next();
+});
+
 
 //routing 
 import userRouter from "./routes/user.routes.js";
