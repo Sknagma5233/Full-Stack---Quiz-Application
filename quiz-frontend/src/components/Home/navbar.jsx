@@ -77,40 +77,41 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Navigation */}
-      {isMenuOpen && (
-        <div className="md:hidden bg-gray-900 border-t border-gray-800 px-4 pt-3 pb-4 space-y-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={linkClass(item.href)}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {item.name}
-            </Link>
-          ))}
+{isMenuOpen && (
+  <div className="md:hidden bg-gray-900 border-t border-gray-800 px-6 pt-4 pb-6 space-y-4 flex flex-col">
+    {navItems.map((item) => (
+      <Link
+        key={item.name}
+        href={item.href}
+        className={`${linkClass(item.href)} block pl-2`}
+        onClick={() => setIsMenuOpen(false)}
+      >
+        {item.name}
+      </Link>
+    ))}
 
-          {isLoggedIn ? (
-            <button
-              onClick={() => {
-                handleLogout()
-                setIsMenuOpen(false)
-              }}
-              className="text-gray-300 hover:text-purple-400 transition-colors"
-            >
-              Logout
-            </button>
-          ) : (
-            <Link
-              href="/login"
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors font-medium block w-full text-center"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Login
-            </Link>
-          )}
-        </div>
-      )}
+    {isLoggedIn ? (
+      <button
+        onClick={() => {
+          handleLogout()
+          setIsMenuOpen(false)
+        }}
+        className="text-gray-300 hover:text-purple-400 transition-colors text-left pl-2"
+      >
+        Logout
+      </button>
+    ) : (
+      <Link
+        href="/login"
+        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors font-medium block w-full text-center"
+        onClick={() => setIsMenuOpen(false)}
+      >
+        Login
+      </Link>
+    )}
+  </div>
+)}
+
     </nav>
   )
 }

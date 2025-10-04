@@ -10,7 +10,7 @@ const app = express();
 
 app.use(cors(
     {
-        origin: process.env.CORS_ORIGIN,
+        origin: ["http://localhost:3000", "https://techquest-quiz.vercel.app"],
         credentials: true
     }
 ))

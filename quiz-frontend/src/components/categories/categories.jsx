@@ -2,6 +2,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import axiosInstance from "@/utils/axiosInstance"
+import toast from 'react-hot-toast'
 
 // const categories = [
 //   {

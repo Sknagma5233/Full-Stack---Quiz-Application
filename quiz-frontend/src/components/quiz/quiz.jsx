@@ -19,12 +19,14 @@ export default function Quiz() {
   const [startTime, setStartTime] = useState(Date.now());
   const [progress, setProgress] = useState(0);
   const [levelName, setLevelName] = useState("");
+  const [submitted, setSubmitted] = useState(false); // prevent double submit
 
   const warningThresholds = {
-  easy: 60, 
-  medium: 120,
-  hard: 180    
-}
+    easy: 60, 
+    medium: 120,
+    hard: 180    
+  }
+
   const warningTime = levelName
     ? warningThresholds[levelName.toLowerCase()] || 300
     : 300;
@@ -34,18 +36,14 @@ export default function Quiz() {
     setStartTime(Date.now());
   }, []);
 
+  // Get level name
   useEffect(() => {
     const getLevel = async () => {
       try {
         const res = await axiosInstance(`/categories/${category}/levels`);
-        console.log(res.data.levels);
         const levelsArray = res.data.levels;
-
         const currentLevel = levelsArray.find((l) => l._id === level);
-
-        if (currentLevel) {
-          setLevelName(currentLevel.name);
-        }
+        if (currentLevel) setLevelName(currentLevel.name);
       } catch (err) {
         console.error(err);
       }
@@ -54,48 +52,39 @@ export default function Quiz() {
   }, [level, category]);
 
   // Fetch questions
-  const url = `/questions/levels/${level}`;
   useEffect(() => {
     const getAllQuestions = async () => {
       try {
-        const response = await axiosInstance(url);
+        const response = await axiosInstance(`/questions/levels/${level}`);
         setQuestions(response.data.data);
         setSelectedAnswers(new Array(response.data.data.length).fill(-1));
       } catch (error) {
         console.error("Error fetching questions:", error.message);
       }
     };
-
     getAllQuestions();
   }, [category, level]);
 
-  // Timer countdown and auto-submit
- useEffect(() => {
-  if (!levelName) return; // wait for levelName
-  if (questions.length === 0) return; // wait for questions
+  // Timer countdown & auto-submit
+  useEffect(() => {
+    if (!levelName || questions.length === 0) return;
 
-  const levelTimes = {
-    easy: 120,
-    medium: 240,
-    hard: 360,
-  };
+    const levelTimes = { easy: 120, medium: 240, hard: 360 };
+    setTimeLeft(levelTimes[levelName.toLowerCase()] || 600);
 
-  setTimeLeft(levelTimes[levelName.toLowerCase()] || 600);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (questions.length > 0 && !submitted) handleSubmit(true); // auto submit
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-  const timer = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev <= 1) {
-        clearInterval(timer);
-        // ✅ Safe submit only if questions are loaded
-        if (questions.length > 0) handleSubmit(true);
-        return 0;
-      }
-      return prev - 1;
-    });
-  }, 1000);
-
-  return () => clearInterval(timer); // cleanup
-}, [levelName, questions]);
+    return () => clearInterval(timer);
+  }, [levelName, questions, submitted]);
 
   // Progress bar
   useEffect(() => {
@@ -104,9 +93,7 @@ export default function Quiz() {
 
   // Answered questions count
   useEffect(() => {
-    setAnsweredQuestions(
-      selectedAnswers.filter((answer) => answer !== -1).length
-    );
+    setAnsweredQuestions(selectedAnswers.filter(ans => ans !== -1).length);
   }, [selectedAnswers]);
 
   // Select answer
@@ -121,24 +108,23 @@ export default function Quiz() {
   };
 
   const handleNext = () => {
-    if (currentQuestion < questions.length - 1)
-      setCurrentQuestion(currentQuestion + 1);
+    if (currentQuestion < questions.length - 1) setCurrentQuestion(currentQuestion + 1);
   };
 
   // Submit quiz
-  const handleSubmit = async () => {
+  const handleSubmit = async (timeUp = false) => {
+    if (submitted) return; // prevent double submit
+    setSubmitted(true);
+
     try {
       const endTime = Date.now();
       const timeTaken = Math.floor((endTime - startTime) / 1000);
 
-      if (questions.length === 0) return; 
-      
+      if (questions.length === 0) return;
+
       const answers = questions.map((q, index) => ({
         questionId: q._id,
-        optionId:
-          selectedAnswers[index] !== -1
-            ? q.options[selectedAnswers[index]]._id
-            : null,
+        optionId: selectedAnswers[index] !== -1 ? q.options[selectedAnswers[index]]._id : null,
       }));
 
       const res = await axiosInstance.post("/results", {
@@ -148,20 +134,17 @@ export default function Quiz() {
       });
 
       if (timeUp) {
-      alert("⏰ Time's up! Result submitted automatically.");
-    } else {
-      alert("✅ Result submitted successfully!");
-    }
+        alert("⏰ Time's up! Result submitted automatically.");
+      } else {
+        alert("✅ Result submitted successfully!");
+      }
 
       router.push(
         `/categories/${category}/levels/${level}/results?resultId=${res.data.data._id}&timeTaken=${timeTaken}`
       );
     } catch (error) {
-      toast.error("Error while submitting")
-      console.error(
-        "Error submitting result:",
-        error.response?.data || error.message
-      );
+      toast.error("Error while submitting");
+      console.error("Error submitting result:", error.response?.data || error.message);
     }
   };
 
@@ -169,19 +152,15 @@ export default function Quiz() {
   const formatTime = (seconds) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
-      .toString()
-      .padStart(2, "0")}`;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-900">
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="text-4xl mb-4">⏳</div>
-            <p className="text-gray-300">Loading quiz...</p>
-          </div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-gray-300">Loading quiz...</p>
         </div>
       </div>
     );
@@ -207,7 +186,7 @@ export default function Quiz() {
             </div>
           </div>
 
-          {/* Progress and Timer */}
+          {/* Progress & Timer */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex-1 mr-4">
               <div className="flex items-center justify-between mb-2">
@@ -222,22 +201,12 @@ export default function Quiz() {
                 <div
                   className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
-                ></div>
+                />
               </div>
             </div>
             <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2">
-              <span
-                className={`text-lg ${
-                  timeLeft < 300 ? "text-red-400" : "text-purple-400"
-                }`}
-              >
-                ⏰
-              </span>
-              <span
-                className={`font-mono font-medium ${
-                  timeLeft < 300 ? "text-red-400" : "text-white"
-                }`}
-              >
+              <span className={`text-lg ${timeLeft < 300 ? "text-red-400" : "text-purple-400"}`}>⏰</span>
+              <span className={`font-mono font-medium ${timeLeft < 300 ? "text-red-400" : "text-white"}`}>
                 {formatTime(timeLeft)}
               </span>
             </div>
@@ -271,16 +240,12 @@ export default function Quiz() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                      selectedAnswers[currentQuestion] === index
-                        ? "border-purple-600 bg-purple-600 text-white"
-                        : "border-gray-500"
-                    }`}
-                  >
-                    {selectedAnswers[currentQuestion] === index && (
-                      <div className="w-2 h-2 bg-white rounded-full" />
-                    )}
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    selectedAnswers[currentQuestion] === index
+                      ? "border-purple-600 bg-purple-600 text-white"
+                      : "border-gray-500"
+                  }`}>
+                    {selectedAnswers[currentQuestion] === index && <div className="w-2 h-2 bg-white rounded-full" />}
                   </div>
                   <span className="text-lg text-white">{option.text}</span>
                 </div>
@@ -303,7 +268,7 @@ export default function Quiz() {
           <div className="flex items-center gap-4">
             {currentQuestion === questions.length - 1 ? (
               <button
-                onClick={handleSubmit}
+                onClick={() => handleSubmit()} // manual submit
                 className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
                 disabled={answeredQuestions === 0}
               >
